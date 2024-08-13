@@ -79,7 +79,7 @@ mp_obj_t presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
     presto_debug("malloc self\n");
-    self = mp_obj_malloc_with_finaliser(_presto_obj_t, &presto_type);
+    self = mp_obj_malloc_with_finaliser(_presto_obj_t, &Presto_type);
 
     presto_debug("set fb pointers\n");
     self->curr_fb = m_new(uint16_t, 28800); // (uint16_t*)0x11000000;
