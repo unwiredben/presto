@@ -14,13 +14,13 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
-include(c/example/micropython)
+include(c/presto/micropython)
 
-# include(micropython-common)
-# enable_ulab()
+include(micropython-common)
+enable_ulab()
 
 # C++ Magic Memory
-# include(cppmem/micropython)
+include(cppmem/micropython)
 
 # Disable build-busting C++ exceptions
 include(micropython-disable-exceptions)

@@ -1,8 +1,9 @@
-# cmake file for the Pimoroni PGA2040
-set(PICO_BOARD "pga2040")
-set(PICO_PLATFORM "rp2040")
+# cmake file for the Pimoroni PGA2350
+set(PICO_BOARD "presto")
+set(PICO_PLATFORM "rp2350-arm-s")
+set(PICO_NUM_GPIOS 48)
 
-# Make sure we find pga2040.h (PICO_BOARD) in the current dir
+# Make sure we find pga2350.h (PICO_BOARD) in the current dir
 set(PICO_BOARD_HEADER_DIRS ${CMAKE_CURRENT_LIST_DIR})
 
 # Board specific version of the frozen manifest

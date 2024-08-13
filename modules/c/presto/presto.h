@@ -1,0 +1,21 @@
+// Include MicroPython API.
+#include "py/runtime.h"
+
+/***** Constants *****/
+static const uint BACKLIGHT = 38;
+
+static const int WIDTH = 480;
+static const int HEIGHT = 480;
+static const uint LCD_CLK = 26;
+static const uint LCD_CS = 28;
+static const uint LCD_DAT = 27;
+static const uint LCD_DC = -1;
+static const uint LCD_D0 = 1;
+
+/***** Extern of Class Definition *****/
+extern const mp_obj_type_t Presto_type;
+
+/***** Extern of Class Methods *****/
+extern mp_obj_t Presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args);
+extern mp_obj_t Presto_update(mp_obj_t self_in, mp_obj_t graphics_in);
+extern mp_obj_t Presto___del__(mp_obj_t self_in);
