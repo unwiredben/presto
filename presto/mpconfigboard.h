@@ -11,3 +11,6 @@
 #define MICROPY_HW_ENABLE_PSRAM                 (1)
 
 #define MICROPY_PY_THREAD                       (0)
+
+// TODO: Remove when https://github.com/micropython/micropython/pull/15655 is merged
+#define core1_entry                             (NULL)
