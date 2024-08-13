@@ -65,7 +65,7 @@ void presto_core1_entry() {
 #define stack_size 4096u
 static uint32_t core1_stack[stack_size] = {0};
 
-mp_obj_t presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
+mp_obj_t Presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
     _presto_obj_t *self = nullptr;
 
     enum { ARG_pio, ARG_sm, ARG_pins, ARG_common_pin, ARG_direction, ARG_counts_per_rev, ARG_count_microsteps, ARG_freq_divider };
@@ -118,7 +118,7 @@ mp_obj_t presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     return MP_OBJ_FROM_PTR(self);
 }
 
-extern mp_obj_t presto_update(mp_obj_t self_in, mp_obj_t graphics_in) {
+extern mp_obj_t Presto_update(mp_obj_t self_in, mp_obj_t graphics_in) {
     _presto_obj_t *self = MP_OBJ_TO_PTR2(self_in, _presto_obj_t);
     ModPicoGraphics_obj_t *picographics = MP_OBJ_TO_PTR2(graphics_in, ModPicoGraphics_obj_t);
 
@@ -136,7 +136,7 @@ extern mp_obj_t presto_update(mp_obj_t self_in, mp_obj_t graphics_in) {
     return mp_const_none;
 }
 
-mp_obj_t presto___del__(mp_obj_t self_in) {
+mp_obj_t Presto___del__(mp_obj_t self_in) {
     _presto_obj_t *self = MP_OBJ_TO_PTR2(self_in, _presto_obj_t);
     m_del_class(ST7701, self->presto);
     return mp_const_none;
