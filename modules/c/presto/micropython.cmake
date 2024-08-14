@@ -18,8 +18,4 @@ target_include_directories(usermod_presto INTERFACE
     ${REPO_ROOT}/micropython/modules
 )
 
-target_compile_definitions(usermod_presto INTERFACE
-    MODULE_PRESTO_ENABLED=1
-)
-
 target_link_libraries(usermod INTERFACE usermod_presto)
