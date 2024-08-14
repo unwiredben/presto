@@ -18,9 +18,15 @@ extern "C" {
 #include "py/builtin.h"
 #include <stdarg.h>
 
+// MicroPython's GC heap will automatically resize, so we should just
+// statically allocate these in C++ to avoid fragmentation.
+__attribute__((section(".uninitialized_bss"))) static uint16_t presto_buffer_a[WIDTH * HEIGHT] = {0};
+__attribute__((section(".uninitialized_bss"))) static uint16_t presto_buffer_b[WIDTH * HEIGHT] = {0};
+__attribute__((section(".uninitialized_bss"))) static uint16_t presto_line_buffer[WIDTH * ST7701::NUM_LINE_BUFFERS];
+
 void __printf_debug_flush() {
     for(auto i = 0u; i < 10; i++) {
-        sleep_ms(1);
+        sleep_ms(2);
         mp_event_handle_nowait();
     }
 }
@@ -37,12 +43,13 @@ void presto_debug(const char *fmt, ...) {
 }
 
 /***** Variables Struct *****/
-typedef struct _presto_obj_t {
+typedef struct _Presto_obj_t {
     mp_obj_base_t base;
     ST7701* presto;
     uint16_t* next_fb;
     uint16_t* curr_fb;
-} _presto_obj_t;
+    uint16_t* linebuffer;
+} _Presto_obj_t;
 
 typedef struct _ModPicoGraphics_obj_t {
     mp_obj_base_t base;
@@ -58,15 +65,21 @@ void presto_core1_entry() {
     ST7701 *presto = (ST7701*)multicore_fifo_pop_blocking();
 
     presto->init();
+
     multicore_fifo_push_blocking(0); // Todo handle issues here?*/
-    while (1) __wfe();
+
+    multicore_fifo_pop_blocking(); // Block until exit is sent
+
+    presto->cleanup();
+
+    multicore_fifo_push_blocking(0);
 }
 
 #define stack_size 4096u
 static uint32_t core1_stack[stack_size] = {0};
 
 mp_obj_t Presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *all_args) {
-    _presto_obj_t *self = nullptr;
+    _Presto_obj_t *self = nullptr;
 
     enum { ARG_pio, ARG_sm, ARG_pins, ARG_common_pin, ARG_direction, ARG_counts_per_rev, ARG_count_microsteps, ARG_freq_divider };
     static const mp_arg_t allowed_args[] = {
@@ -79,16 +92,17 @@ mp_obj_t Presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     mp_arg_parse_all_kw_array(n_args, n_kw, all_args, MP_ARRAY_SIZE(allowed_args), allowed_args, args);
 
     presto_debug("malloc self\n");
-    self = mp_obj_malloc_with_finaliser(_presto_obj_t, &Presto_type);
+    self = mp_obj_malloc_with_finaliser(_Presto_obj_t, &Presto_type);
 
     presto_debug("set fb pointers\n");
-    self->curr_fb = m_new(uint16_t, 28800); // (uint16_t*)0x11000000;
-    self->next_fb = self->curr_fb; //(uint16_t*)0x11080000;
+    self->curr_fb = presto_buffer_a; //(uint16_t*)0x11000000;
+    self->next_fb = presto_buffer_b; //(uint16_t*)0x11080000;
+    self->linebuffer = presto_line_buffer;
 
     presto_debug("m_new_class(ST7701...\n");
     ST7701 *presto = m_new_class(ST7701, WIDTH, HEIGHT, ROTATE_0,
         SPIPins{spi1, LCD_CS, LCD_CLK, LCD_DAT, PIN_UNUSED, LCD_DC, BACKLIGHT},
-        self->next_fb,
+        self->next_fb, self->linebuffer,
         LCD_D0);
 
     self->presto = presto;
@@ -102,6 +116,14 @@ mp_obj_t Presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     multicore_fifo_pop_blocking();
     presto_debug("core1 running...\n");
 
+    /*presto_debug("presto_set_qmi_timing: ");
+    presto_set_qmi_timing();
+    presto_debug("ok\n");
+
+    presto_debug("presto_setup_psram: ");
+    presto_setup_psram(47);
+    presto_debug("ok\n");*/
+
     presto_debug("signal core1\n");
     multicore_fifo_push_blocking((uintptr_t)self->presto);
     int res = multicore_fifo_pop_blocking();
@@ -112,33 +134,59 @@ mp_obj_t Presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     //presto_debug("ok\n");
 
     if(res != 0) {
-        mp_raise_msg(&mp_type_RuntimeError, "presto: failed to start ST7701 on Core1.");
+        mp_raise_msg(&mp_type_RuntimeError, "Presto: failed to start ST7701 on Core1.");
     }
 
     return MP_OBJ_FROM_PTR(self);
 }
 
+mp_int_t Presto_get_framebuffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_uint_t flags) {
+    _Presto_obj_t *self = MP_OBJ_TO_PTR2(self_in, _Presto_obj_t);
+    (void)flags;
+    bufinfo->buf = self->curr_fb;
+    bufinfo->len = WIDTH * HEIGHT * 2;
+    bufinfo->typecode = 'B';
+    return 0;
+}
+
+static inline int32_t reverse(uint32_t x) {
+    x = ((x >>  1) & 0x55555555u) | ((x & 0x55555555u) <<  1);
+    x = ((x >>  2) & 0x33333333u) | ((x & 0x33333333u) <<  2);
+    x = ((x >>  4) & 0x0f0f0f0fu) | ((x & 0x0f0f0f0fu) <<  4);
+    x = ((x >>  8) & 0x00ff00ffu) | ((x & 0x00ff00ffu) <<  8);
+    x = ((x << 1) & 0xffc0ffc0) | (x & 0x003f003f); // drop the high B bit and merge
+    return x;
+}
+
 extern mp_obj_t Presto_update(mp_obj_t self_in, mp_obj_t graphics_in) {
-    _presto_obj_t *self = MP_OBJ_TO_PTR2(self_in, _presto_obj_t);
+    _Presto_obj_t *self = MP_OBJ_TO_PTR2(self_in, _Presto_obj_t);
     ModPicoGraphics_obj_t *picographics = MP_OBJ_TO_PTR2(graphics_in, ModPicoGraphics_obj_t);
 
-    // Wait for any pending flip to finish
-    self->presto->wait_for_vsync();
+    uint32_t *p = (uint32_t *)self->next_fb;
+    for(uint32_t i = 0; i < 28800; i++) {
+        *p = reverse(*p);
+        p++;
+    }
 
     self->presto->set_framebuffer(self->next_fb);
-
-    // Flip the buffers
     std::swap(self->next_fb, self->curr_fb);
+    picographics->graphics->set_framebuffer((void *)self->next_fb);
 
-    // Make sure PicoGraphics is drawing into our current front buffer
-    picographics->graphics->frame_buffer = (uint8_t *)self->next_fb;
+    self->presto->wait_for_vsync();
 
     return mp_const_none;
 }
 
 mp_obj_t Presto___del__(mp_obj_t self_in) {
-    _presto_obj_t *self = MP_OBJ_TO_PTR2(self_in, _presto_obj_t);
-    m_del_class(ST7701, self->presto);
+    (void)self_in;
+    //_Presto_obj_t *self = MP_OBJ_TO_PTR2(self_in, _Presto_obj_t);
+    presto_debug("signal core1\n");
+    multicore_fifo_push_blocking(0);
+    (void)multicore_fifo_pop_blocking();
+    presto_debug("core1 returned\n");
+
+    //self->presto->cleanup();
+    //m_del_class(ST7701, self->presto);
     return mp_const_none;
 }
 

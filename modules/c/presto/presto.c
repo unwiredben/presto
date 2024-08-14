@@ -24,6 +24,7 @@ MP_DEFINE_CONST_OBJ_TYPE(
     MP_QSTR_Presto,
     MP_TYPE_FLAG_NONE,
     make_new, Presto_make_new,
+    buffer, Presto_get_framebuffer,
     locals_dict, (mp_obj_dict_t*)&Presto_locals_dict
 );
 
