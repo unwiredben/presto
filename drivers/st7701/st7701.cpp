@@ -245,7 +245,9 @@ void __no_inline_not_in_flash_func(ST7701::fill_next_line()) {
             line_buffer(linebuffer)
   {
       st7701_inst = this;
-      if(!line_buffer) {
+
+      // Allocate line buffers only if none supplied and frame buffer is not in internal RAM.
+      if(!line_buffer && (intptr_t)framebuffer < 0x20000000) {
         line_buffer = (uint16_t*)malloc(NUM_LINE_BUFFERS * width * sizeof(line_buffer[0]));
       }
   }

@@ -20,9 +20,8 @@ extern "C" {
 
 // MicroPython's GC heap will automatically resize, so we should just
 // statically allocate these in C++ to avoid fragmentation.
-__attribute__((section(".uninitialized_bss"))) static uint16_t presto_buffer_a[WIDTH * HEIGHT] = {0};
-__attribute__((section(".uninitialized_bss"))) static uint16_t presto_buffer_b[WIDTH * HEIGHT] = {0};
-__attribute__((section(".uninitialized_bss"))) static uint16_t presto_line_buffer[WIDTH * ST7701::NUM_LINE_BUFFERS];
+__attribute__((section(".uninitialized_data"))) static uint16_t presto_buffer_a[WIDTH * HEIGHT] = {0};
+__attribute__((section(".uninitialized_data"))) static uint16_t presto_buffer_b[WIDTH * HEIGHT] = {0};
 
 void __printf_debug_flush() {
     for(auto i = 0u; i < 10; i++) {
@@ -48,7 +47,6 @@ typedef struct _Presto_obj_t {
     ST7701* presto;
     uint16_t* next_fb;
     uint16_t* curr_fb;
-    uint16_t* linebuffer;
 } _Presto_obj_t;
 
 typedef struct _ModPicoGraphics_obj_t {
@@ -97,12 +95,11 @@ mp_obj_t Presto_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, 
     presto_debug("set fb pointers\n");
     self->curr_fb = presto_buffer_a; //(uint16_t*)0x11000000;
     self->next_fb = presto_buffer_b; //(uint16_t*)0x11080000;
-    self->linebuffer = presto_line_buffer;
 
     presto_debug("m_new_class(ST7701...\n");
     ST7701 *presto = m_new_class(ST7701, WIDTH, HEIGHT, ROTATE_0,
         SPIPins{spi1, LCD_CS, LCD_CLK, LCD_DAT, PIN_UNUSED, LCD_DC, BACKLIGHT},
-        self->next_fb, self->linebuffer,
+        self->next_fb, nullptr,
         LCD_D0);
 
     self->presto = presto;
