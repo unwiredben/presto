@@ -146,23 +146,9 @@ mp_int_t Presto_get_framebuffer(mp_obj_t self_in, mp_buffer_info_t *bufinfo, mp_
     return 0;
 }
 
-static inline int32_t reverse(uint32_t x) {
-    x = ((x >>  1) & 0x55555555u) | ((x & 0x55555555u) <<  1);
-    x = ((x >>  2) & 0x33333333u) | ((x & 0x33333333u) <<  2);
-    x = ((x >>  4) & 0x0f0f0f0fu) | ((x & 0x0f0f0f0fu) <<  4);
-    x = ((x << 1) & 0xffc0ffc0) | (x & 0x003f003f); // drop the high B bit and merge
-    return x;
-}
-
 extern mp_obj_t Presto_update(mp_obj_t self_in, mp_obj_t graphics_in) {
     _Presto_obj_t *self = MP_OBJ_TO_PTR2(self_in, _Presto_obj_t);
     ModPicoGraphics_obj_t *picographics = MP_OBJ_TO_PTR2(graphics_in, ModPicoGraphics_obj_t);
-
-    uint32_t *p = (uint32_t *)self->next_fb;
-    for(uint32_t i = 0; i < 28800; i++) {
-        *p = reverse(*p);
-        p++;
-    }
 
     self->presto->set_framebuffer(self->next_fb);
     std::swap(self->next_fb, self->curr_fb);
