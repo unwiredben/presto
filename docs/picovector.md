@@ -217,4 +217,4 @@ Returns a four tuple with the x, y position, width and height in pixels.
 
 When you draw text the x, y position and angle are used to create a new
 Transform to control the position and rotation of your text. The transform
-set with `.set_transform()` is ignored.
+set with `.set_transform()` is also applied.
