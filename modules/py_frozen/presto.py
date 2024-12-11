@@ -12,6 +12,9 @@ Touch = namedtuple("touch", ("x", "y", "touched"))
 
 
 class Presto():
+    NUM_LEDS = 7
+    LED_PIN = 33
+
     def __init__(self, full_res=False, ambient_light=False, direct_to_fb=False, layers=None):
         # WiFi - *must* happen before Presto bringup
         # Note: Forces WiFi details to be in secrets.py
@@ -46,11 +49,24 @@ class Presto():
     async def async_connect(self):
         await self.wifi.connect()
 
+    def set_backlight(self, brightness):
+        self.presto.set_backlight(brightness)
+
+    def auto_ambient_leds(self, enable):
+        self.presto.auto_ambient_leds(enable)
+
     def connect(self, ssid=None, password=None):
         return asyncio.get_event_loop().run_until_complete(self.wifi.connect(ssid, password))
 
+    def touch_poll(self):
+        self.touch.poll()
+
     def update(self):
         self.presto.update(self.display)
+        self.touch.poll()
+
+    def partial_update(self, x, y, w, h):
+        self.presto.partial_update(self.display, x, y, w, h)
         self.touch.poll()
 
     def clear(self):
